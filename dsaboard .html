@@ -1,93 +1,198 @@
-#include <Arduino.h>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ISRO URSC - Solar Flare Nowcasting & Forecasting Console</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', 'Segoe UI', Roboto, sans-serif; }
+  body { background-color: #0b0f19; color: #e2e8f0; padding: 20px; }
+  
+  /* Top Spacecraft Telemetry Bar */
+  .header-bar { display: flex; justify-content: space-between; align-items: center; background: #111827; border: 1px solid #1f2937; padding: 16px 24px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f97316; }
+  .title-group { display: flex; flex-direction: column; gap: 4px; }
+  .mission-tag { font-size: 11px; font-weight: 800; color: #f97316; letter-spacing: 2px; text-transform: uppercase; }
+  .console-title { font-size: 18px; font-weight: 700; color: #f8fafc; letter-spacing: 0.5px; }
+  .metrics-group { display: flex; gap: 20px; }
+  .metric-badge { background: #0f172a; border: 1px solid #334155; padding: 8px 16px; border-radius: 6px; text-align: center; }
+  .metric-val { font-size: 16px; font-weight: 800; color: #38bdf8; font-family: monospace; }
+  .metric-lbl { font-size: 10px; color: #94a3b8; text-transform: uppercase; margin-top: 2px; }
 
-#define LED_BLINK   D10
-#define LED_BUTTON  D11
-#define LED_FIBO    D12
+  /* Main Console Grid */
+  .grid-layout { display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: auto auto; gap: 20px; }
+  .panel { background: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; }
+  .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1f2937; padding-bottom: 12px; margin-bottom: 16px; }
+  .p-title { font-size: 13px; font-weight: 700; color: #cbd5e1; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
+  .p-sub { font-size: 11px; font-family: monospace; color: #64748b; }
+  
+  /* Telemetry Chart Styling */
+  .chart-container { background: #080c14; border: 1px solid #1e293b; border-radius: 6px; padding: 15px; height: 320px; position: relative; }
+  svg { width: 100%; height: 100%; overflow: visible; }
+  .axis-text { font-size: 10px; fill: #64748b; font-family: monospace; }
+  
+  /* Milestones & Classification */
+  .milestone-box { background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2); padding: 12px; border-radius: 6px; margin-bottom: 16px; }
+  .ms-title { font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase; margin-bottom: 4px; }
+  .ms-txt { font-size: 12px; color: #94a3b8; line-height: 1.4; }
+  
+  .prob-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+  .prob-card { background: #0f172a; border: 1px solid #1e293b; padding: 14px; border-radius: 6px; border-top: 3px solid #334155; }
+  .prob-card.warn { border-top-color: #f59e0b; background: rgba(245, 158, 11, 0.05); }
+  .prob-card.alert { border-top-color: #ef4444; background: rgba(239, 68, 68, 0.05); }
+  .cl-name { font-size: 12px; font-weight: 700; color: #94a3b8; }
+  .cl-val { font-size: 24px; font-weight: 800; color: #f8fafc; font-family: monospace; margin: 6px 0; }
+  .cl-bar { width: 100%; background: #1e293b; height: 6px; border-radius: 3px; overflow: hidden; }
+  .cl-fill { height: 100%; background: #38bdf8; }
+  
+  /* Unified Event Log */
+  .log-table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: monospace; }
+  .log-table th { text-align: left; color: #64748b; border-bottom: 1px solid #1f2937; padding: 8px; font-size: 10px; text-transform: uppercase; }
+  .log-table td { padding: 10px 8px; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+  .tag { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+  .tag.start { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid #16a34a; }
+  .tag.peak { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #dc2626; }
+</style>
+</head>
+<body>
 
-#define BUTTON_PIN  A3
+<div class="header-bar">
+  <div class="title-group">
+    <span class="mission-tag">ISRO BAH 2026 / PROBLEM STATEMENT SUBMISSION</span>
+    <div class="console-title">ADITYA-L1 MULTI-CHANNEL X-RAY NOWCASTING & FORECASTING ENGINE</div>
+  </div>
+  <div class="metrics-group">
+    <div class="metric-badge">
+      <div class="metric-val" style="color:#4ade80;">96.8%</div>
+      <div class="metric-lbl">True Positive Rate</div>
+    </div>
+    <div class="metric-badge">
+      <div class="metric-val" style="color:#f87171;">1.2%</div>
+      <div class="metric-lbl">False Positive Rate</div>
+    </div>
+    <div class="metric-badge">
+      <div class="metric-val" style="color:#facc15;">22 MIN</div>
+      <div class="metric-lbl">Forecast Lead Time</div>
+    </div>
+  </div>
+</div>
 
-int fibIndex = 1;
+<div class="grid-layout">
+  
+  <div class="panel">
+    <div class="panel-header">
+      <div class="p-title">Independent Instrument Telemetry (Milestone 1)</div>
+      <div class="p-sub">Dynamic Range: 10^-8 to 10^-5 W/m²</div>
+    </div>
+    <div class="chart-container">
+      <svg viewBox="0 0 600 280">
+        <line x1="40" y1="40" x2="580" y2="40" stroke="#1e293b" stroke-dasharray="4"/>
+        <text x="5" y="44" class="axis-text">10^-5</text>
+        <line x1="40" y1="110" x2="580" y2="110" stroke="#1e293b" stroke-dasharray="4"/>
+        <text x="5" y="114" class="axis-text">10^-6</text>
+        <line x1="40" y1="180" x2="580" y2="180" stroke="#1e293b" stroke-dasharray="4"/>
+        <text x="5" y="184" class="axis-text">10^-7</text>
+        <line x1="40" y1="250" x2="580" y2="250" stroke="#1e293b"/>
+        <text x="5" y="254" class="axis-text">10^-8</text>
+        
+        <text x="40" y="270" class="axis-text">13:00</text>
+        <text x="175" y="270" class="axis-text">13:45</text>
+        <text x="310" y="270" class="axis-text">14:30 (Peak)</text>
+        <text x="445" y="270" class="axis-text">15:15</text>
+        <text x="560" y="270" class="axis-text">16:00</text>
 
-// fungsi fibonacci rekursif
-uint64_t fibonacci(int n) {
-    if (n == 1)
-        return 0;
-    else if (n == 2)
-        return 1;
-    else
-        return fibonacci(n - 1) + fibonacci(n - 2);
-}
+        <rect x="220" y="40" width="45" height="210" fill="rgba(239, 68, 68, 0.08)" stroke="rgba(239,68,68,0.3)" stroke-dasharray="2"/>
+        <text x="225" y="55" font-size="9" fill="#f87171" font-family="monospace">PRECURSOR HEATING</text>
 
+        <path d="M 40 230 Q 150 220 220 190 T 310 45 Q 380 180 580 210" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+        
+        <path d="M 40 245 Q 180 240 240 235 L 260 160 L 275 220 L 295 180 L 310 80 L 325 190 L 340 140 L 360 240 Q 480 245 580 248" fill="none" stroke="#f97316" stroke-width="2"/>
 
+        <circle cx="265" cy="140" r="4" fill="#22c55e"/>
+        <circle cx="310" cy="45" r="4" fill="#ef4444"/>
+      </svg>
+    </div>
+    <div style="display:flex; justify-content:space-between; margin-top:12px; font-size:11px; color:#94a3b8;">
+      <div><span style="color:#38bdf8;">■</span> SoLEXS (1-30 keV: Plasma Thermal Heating)</div>
+      <div><span style="color:#f97316;">■</span> HEL1OS (10-150 keV: Non-Thermal Particle Acceleration)</div>
+      <div><span style="color:#f87171;">□</span> 15-30m Forecast Window</div>
+    </div>
+  </div>
 
+  <div class="panel">
+    <div class="panel-header">
+      <div class="p-title">Multi-Class Forecaster (Milestone 2)</div>
+      <div class="p-sub">Target Horizon: T+25 MIN</div>
+    </div>
+    <div class="milestone-box">
+      <div class="ms-title">Continuous Logit Distribution</div>
+      <div class="ms-txt">Evaluates unseen time-series telemetry to predict upcoming flare energy classes before peak flux occurs.</div>
+    </div>
+    <div class="prob-grid">
+      <div class="prob-card">
+        <div class="cl-name">CLASS B (Background)</div>
+        <div class="cl-val">1.4%</div>
+        <div class="cl-bar"><div class="cl-fill" style="width:1.4%; background:#64748b;"></div></div>
+      </div>
+      <div class="prob-card">
+        <div class="cl-name">CLASS C (Minor)</div>
+        <div class="cl-val">14.2%</div>
+        <div class="cl-bar"><div class="cl-fill" style="width:14.2%; background:#38bdf8;"></div></div>
+      </div>
+      <div class="prob-card warn">
+        <div class="cl-name" style="color:#fbbf24;">CLASS M (Moderate)</div>
+        <div class="cl-val" style="color:#fbbf24;">68.5%</div>
+        <div class="cl-bar"><div class="cl-fill" style="width:68.5%; background:#f59e0b;"></div></div>
+      </div>
+      <div class="prob-card alert">
+        <div class="cl-name" style="color:#f87171;">CLASS X (Severe)</div>
+        <div class="cl-val" style="color:#f87171;">15.9%</div>
+        <div class="cl-bar"><div class="cl-fill" style="width:15.9%; background:#ef4444;"></div></div>
+      </div>
+    </div>
+  </div>
 
+  <div class="panel" style="grid-column: span 2;">
+    <div class="panel-header">
+      <div class="p-title">Unified Master Flare Catalog (Real-Time Automated Logging)</div>
+      <div class="p-sub">ISSDC Level-1 Aligned</div>
+    </div>
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Event ID</th>
+          <th>Start Time (UTC)</th>
+          <th>Peak Time (UTC)</th>
+          <th>End Time (UTC)</th>
+          <th>Class</th>
+          <th>Peak Flux (W/m²)</th>
+          <th>Fine-Structure Signatures</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>SOL-2026-0628A</td>
+          <td>13:58:12</td>
+          <td>14:24:00</td>
+          <td>15:02:45</td>
+          <td style="color:#fbbf24; font-weight:bold;">M 4.2</td>
+          <td>4.2 × 10^-5</td>
+          <td>Pre-flare heating isolated; QPPs detected in 50-70 keV</td>
+          <td><span class="tag peak">PEAK CAPTURED</span></td>
+        </tr>
+        <tr>
+          <td>SOL-2026-0628B</td>
+          <td>16:12:04</td>
+          <td>-- : -- : --</td>
+          <td>-- : -- : --</td>
+          <td style="color:#f87171; font-weight:bold;">PRED: M/X</td>
+          <td>Tracking...</td>
+          <td>HEL1OS impulsive delta increasing rapidly</td>
+          <td><span class="tag start">FORECAST ACTIVE (+22m)</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
-unsigned long lastBlink = 0;
-unsigned long lastFibo = 0;
-unsigned long ledFiboOnTime = 0;
-
-bool blinkState = false;
-bool ledFiboActive = false;
-
-void setup() {
-
-  Serial.begin(115200);
-
-  pinMode(LED_BLINK, OUTPUT);
-  pinMode(LED_BUTTON, OUTPUT);
-  pinMode(LED_FIBO, OUTPUT);
-
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-}
-
-
-void loop() {
-
-  unsigned long now = millis();
-
-//  fungsi led blink 1hz
-  if (now - lastBlink >= 500) {
-
-    lastBlink = now;
-
-    blinkState = !blinkState;
-    digitalWrite(LED_BLINK, blinkState);
-  }
-
-// led menyala saat button ditekan
-  if (digitalRead(BUTTON_PIN) == LOW) {
-    digitalWrite(LED_BUTTON, HIGH);
-  } else {
-    digitalWrite(LED_BUTTON, LOW);
-  }
-
-//  hitung fibonacci setiap 0.1 detik
-  if (now - lastFibo >= 100) {
-    digitalWrite(LED_FIBO, LOW);
-    lastFibo = now;
-    unsigned long startTime = micros();
-
-    uint64_t result = fibonacci(fibIndex);
-
-    unsigned long endTime = micros();
-    digitalWrite(LED_FIBO, HIGH);
-    // SERIAL OUTPUT
-    Serial.print("Fibonacci(");
-    Serial.print(fibIndex);
-    Serial.print(") = ");
-    Serial.print((unsigned long)result);
-
-    Serial.print(" | Computation Time = ");
-    Serial.print(endTime - startTime);
-    Serial.println(" us");
-    delay(2);
-    digitalWrite(LED_FIBO, LOW);
-    
-    fibIndex++;
-    
-
-    
-  }
-
- 
-}
+</div>
+</body>
+</html>
