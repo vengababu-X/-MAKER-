@@ -1,0 +1,93 @@
+#include <Arduino.h>
+
+#define LED_BLINK   D10
+#define LED_BUTTON  D11
+#define LED_FIBO    D12
+
+#define BUTTON_PIN  A3
+
+int fibIndex = 1;
+
+// fungsi fibonacci rekursif
+uint64_t fibonacci(int n) {
+    if (n == 1)
+        return 0;
+    else if (n == 2)
+        return 1;
+    else
+        return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+
+
+
+
+unsigned long lastBlink = 0;
+unsigned long lastFibo = 0;
+unsigned long ledFiboOnTime = 0;
+
+bool blinkState = false;
+bool ledFiboActive = false;
+
+void setup() {
+
+  Serial.begin(115200);
+
+  pinMode(LED_BLINK, OUTPUT);
+  pinMode(LED_BUTTON, OUTPUT);
+  pinMode(LED_FIBO, OUTPUT);
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+}
+
+
+void loop() {
+
+  unsigned long now = millis();
+
+//  fungsi led blink 1hz
+  if (now - lastBlink >= 500) {
+
+    lastBlink = now;
+
+    blinkState = !blinkState;
+    digitalWrite(LED_BLINK, blinkState);
+  }
+
+// led menyala saat button ditekan
+  if (digitalRead(BUTTON_PIN) == LOW) {
+    digitalWrite(LED_BUTTON, HIGH);
+  } else {
+    digitalWrite(LED_BUTTON, LOW);
+  }
+
+//  hitung fibonacci setiap 0.1 detik
+  if (now - lastFibo >= 100) {
+    digitalWrite(LED_FIBO, LOW);
+    lastFibo = now;
+    unsigned long startTime = micros();
+
+    uint64_t result = fibonacci(fibIndex);
+
+    unsigned long endTime = micros();
+    digitalWrite(LED_FIBO, HIGH);
+    // SERIAL OUTPUT
+    Serial.print("Fibonacci(");
+    Serial.print(fibIndex);
+    Serial.print(") = ");
+    Serial.print((unsigned long)result);
+
+    Serial.print(" | Computation Time = ");
+    Serial.print(endTime - startTime);
+    Serial.println(" us");
+    delay(2);
+    digitalWrite(LED_FIBO, LOW);
+    
+    fibIndex++;
+    
+
+    
+  }
+
+ 
+}
